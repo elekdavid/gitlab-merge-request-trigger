@@ -1,7 +1,5 @@
 ## Support Merge Requests through Triggers API
 
-[![Deploy](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://gitlab.com/ayufan/merge-request-triggers)
-
 This simple application allows to implement proper Merge Request workflow in GitLab CI,
 to have a different testing workflow for Merge Requests.
  

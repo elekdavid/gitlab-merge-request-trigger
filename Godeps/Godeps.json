@@ -1,0 +1,5 @@
+{
+	"ImportPath": "gitlab.com/ayufan/merge-request-triggers",
+	"GoVersion": "go1.6",
+	"Deps": []
+}
