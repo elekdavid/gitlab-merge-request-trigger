@@ -8,8 +8,8 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strings"
 	"strconv"
+	"strings"
 )
 
 type project struct {
@@ -24,8 +24,8 @@ type commit struct {
 }
 
 type objectAttributes struct {
-	ID              int64   `json:"id"`
-	IID             int64   `json:"iid"`
+	ID              int     `json:"id"`
+	IID             int     `json:"iid"`
 	TargetBranch    string  `json:"target_branch"`
 	SourceBranch    string  `json:"source_branch"`
 	SourceProjectID int64   `json:"source_project_id"`

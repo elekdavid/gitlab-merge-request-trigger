@@ -45,6 +45,14 @@ go get gitlab.com/ayufan/merge-request-triggers
 merge-request-triggers -listen=:8080 -token=abcdef
 ```
 
+## Use on Heroku
+
+```
+$ heroku create
+$ git push heroku master
+$ heroku config:set GITLAB_TRIGGER_TOKEN=token
+```
+
 ## Configure
 
 1. Go to: Project -> Webhooks (https://gitlab.com/group/project/hooks) and add a new webhook for `Merge Request Events`
@@ -52,6 +60,7 @@ pointing to `merge-request-triggers` running on some server. Use this link: `htt
 
 2. Go to: Project -> Triggers (https://gitlab.com/ayufan/test/triggers) and add a new Trigger.
 Copy the token and use that for `-token=` switch of `merge-request-triggers`.
+
 
 ## Limitations
 
