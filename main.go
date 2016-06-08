@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"strconv"
 )
 
 type project struct {
@@ -72,8 +73,8 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	values.Set("token", *triggerToken)
 	values.Set("ref", webhook.Attributes.SourceBranch)
 	values.Set("variables[CI_MERGE_REQUEST]", "true")
-	values.Set("variables[CI_MERGE_REQUEST_ID]", webhook.Attributes.ID)
-	values.Set("variables[CI_MERGE_REQUEST_IID]", webhook.Attributes.IID)
+	values.Set("variables[CI_MERGE_REQUEST_ID]", strconv.Itoa(webhook.Attributes.ID))
+	values.Set("variables[CI_MERGE_REQUEST_IID]", strconv.Itoa(webhook.Attributes.IID))
 	values.Set("variables[CI_MERGE_REQUEST_ACTION]", webhook.Attributes.Action)
 	values.Set("variables[CI_MERGE_REQUEST_STATE]", webhook.Attributes.State)
 	values.Set("variables[CI_TARGET_PROJECT]", webhook.Attributes.Target.HTTPURL)
