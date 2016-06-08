@@ -1,0 +1,14 @@
+{
+  "name": "GitLab Merge Requests",
+  "description": "This simple application allows to implement proper Merge Request workflow in GitLab CI, to have a different testing workflow for Merge Requests.",
+  "keywords": [
+    "small",
+    "sharp",
+    "tool"
+  ],
+  "addons": [],
+  "env": {
+    "GITLAB_TRIGGER_TOKEN": "Paste here the GitLab Triggers API token for your project"
+  }
+}
+
