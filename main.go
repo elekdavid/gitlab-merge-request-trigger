@@ -160,8 +160,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"source_branch:", webhook.Attributes.SourceBranch,
 		"target_project:", webhook.Attributes.Target.HTTPURL,
 		"target_branch:", webhook.Attributes.TargetBranch,
-		"commit_sha:", webhook.Attributes.LastCommit.ID,
-		"commit_message:", webhook.Attributes.LastCommit.Message)
+		"commit_sha:", webhook.Attributes.LastCommit.ID)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
 		httpError(w, r, "We support only open, reopen and update action", http.StatusBadRequest)
