@@ -206,12 +206,12 @@ func main() {
 
 	if *triggerToken == "" && *privateToken == "" ||
 		*triggerToken != "" && *privateToken != "" {
-		println("Specify --trigger-token or --private-token")
+		println("Specify -trigger-token or -private-token")
 		os.Exit(2)
 	}
 
 	if *gitlabURL == "" {
-		println("Specify --url an address of GitLab instance")
+		println("Specify -url an address of GitLab instance")
 		os.Exit(2)
 	}
 
