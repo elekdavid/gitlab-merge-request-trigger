@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 )
 
@@ -150,9 +149,10 @@ func getTriggerToken(projectID int64) (string, error) {
 	}
 }
 
-func runTrigger(projectID int64, values url.Values) (resp *http.Response, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/trigger/pipeline", *gitlabURL, projectID)
-	return http.PostForm(reqURL, values)
+func runTrigger(projectID int64, ref, token string) (pipeline *pipeline, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true", *gitlabURL, projectID, ref, token)
+	_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
+	return
 }
 
 func getPendingBuilds(projectID int64, pipelineID int) (jobs []job, err error) {
@@ -264,28 +264,15 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	values := make(url.Values)
-	values.Set("token", token)
-	values.Set("ref", webhook.Attributes.SourceBranch)
-	values.Set("variables[CI_MERGE_REQUEST]", "true")
-
-	resp, err := runTrigger(webhook.Attributes.SourceProjectID, values)
+	pipeline, err := runTrigger(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, token)
 	if err != nil {
 		httpError(w, r, "error triggering pipeline - "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer resp.Body.Close()
 
-	var p pipeline
-	err = json.NewDecoder(resp.Body).Decode(&p)
-	if err != nil {
-		httpError(w, r, "error decoding json body of pipeline creation response:"+err.Error(), http.StatusUnsupportedMediaType)
-		return
-	}
-
-	message := fmt.Sprintf("created pipeline id: %d", p.ID)
-	httpError(w, r, message, resp.StatusCode)
-	defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
+	message := fmt.Sprintf("created pipeline id: %d", pipeline.ID)
+	httpError(w, r, message, http.StatusCreated)
+	defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, pipeline.ID)
 	return
 }
 
