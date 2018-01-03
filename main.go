@@ -227,8 +227,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"action:", webhook.Attributes.Action,
 		"project:", webhook.Attributes.Source.HTTPURL,
 		"branches:", webhook.Attributes.SourceBranch, ">", webhook.Attributes.TargetBranch,
-		"commit_sha:", webhook.Attributes.LastCommit.ID,
-		"commit_timestamp:", webhook.Attributes.LastCommit.Timestamp,
+		"commit:", webhook.Attributes.LastCommit.ID, "@", webhook.Attributes.LastCommit.Timestamp,
 		"wip:", webhook.Attributes.WorkInProgress,
 		"merge_status:", webhook.Attributes.MergeStatus)
 
@@ -244,7 +243,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	commit, err := getCommit(webhook.Attributes.SourceProjectID, webhook.Attributes.LastCommit.ID)
 	if err != nil {
-		httpError(w, r, "cannot get details of the commit:"+err.Error(), http.StatusInternalServerError)
+		httpError(w, r, "error getting details of the commit:"+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if commit.LastPipeline != nil {
@@ -256,7 +255,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	token, err := getTriggerToken(webhook.Attributes.SourceProjectID)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusInternalServerError)
+		httpError(w, r, "error getting trigger token - "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -267,7 +266,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	resp, err := runTrigger(webhook.Attributes.SourceProjectID, values)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusInternalServerError)
+		httpError(w, r, "error triggering pipeline - "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
