@@ -168,12 +168,12 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	var webhook webhookRequest
 	err := json.NewDecoder(r.Body).Decode(&webhook)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusBadRequest)
+		httpError(w, r, err.Error(), http.StatusUnsupportedMediaType)
 		return
 	}
 
 	if webhook.ObjectKind != "merge_request" {
-		httpError(w, r, "We support merge_request only", http.StatusBadRequest)
+		httpError(w, r, "We support merge_request only", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -192,12 +192,12 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"merge_status:", webhook.Attributes.MergeStatus)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
-		httpError(w, r, "We support only open, reopen and update action but it was: "+webhook.Attributes.Action, http.StatusBadRequest)
+		httpError(w, r, "Ignored action: "+webhook.Attributes.Action, http.StatusNoContent)
 		return
 	}
 
 	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
-		httpError(w, r, webhook.Attributes.Source.HTTPURL+" is not prefix of "+*gitlabURL, http.StatusBadRequest)
+		httpError(w, r, webhook.Attributes.Source.HTTPURL+" is not prefix of "+*gitlabURL, http.StatusNotFound)
 		return
 	}
 
