@@ -3,6 +3,7 @@ References:
  - https://docs.gitlab.com/ce/user/project/integrations/webhooks.html#merge-request-events
  - https://docs.gitlab.com/ce/api/commits.html#get-a-single-commit
  - https://docs.gitlab.com/ce/api/pipelines.html
+ - https://docs.gitlab.com/ce/api/jobs.html
 */
 
 package main
@@ -36,6 +37,10 @@ type commit struct {
 }
 
 type pipeline struct {
+	ID int `json:"id"`
+}
+
+type job struct {
 	ID int `json:"id"`
 }
 
@@ -150,40 +155,45 @@ func runTrigger(projectID int64, values url.Values) (resp *http.Response, err er
 	return http.PostForm(reqURL, values)
 }
 
+func getPendingBuilds(projectID int64, pipelineID int) (jobs []job, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines/%d/jobs?scope[]=pending", *gitlabURL, projectID, pipelineID)
+	_, err = doJsonRequest("GET", reqURL, "", nil, &jobs)
+	return
+}
+
+func cancelBuild(projectID int64, buildID int) (job job, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/jobs/%d/cancel", *gitlabURL, projectID, buildID)
+	log.Println("[BUILD] Cancelling build:", buildID)
+	_, err = doJsonRequest("POST", reqURL, "", nil, &job)
+	return
+}
+
 func getPipelines(projectID int64, ref string) (pipelines []pipeline, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines?ref=%s&status=pending&sort=asc", *gitlabURL, projectID, ref)
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines?ref=%s&status=running&sort=asc", *gitlabURL, projectID, ref)
 	_, err = doJsonRequest("GET", reqURL, "", nil, &pipelines)
 	return
 }
 
-func cancelPipeline(projectID int64, pipelineID int) (pipeline pipeline, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines/%d/cancel", *gitlabURL, projectID, pipelineID)
-	log.Println("[DEBUG] Cancelling pipeline:", reqURL)
-	/*
-		_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
-	*/
-	return
-}
-
-func cancelRedundantPipelines(projectID int64, ref string, excludePipeline int) {
-	var pipelines []pipeline
-	var err error
-
-	if pipelines, err = getPipelines(projectID, ref); err != nil {
-		log.Fatal(err)
+func cancelRedundantBuilds(projectID int64, ref string, excludePipeline int) {
+	pipelines, err := getPipelines(projectID, ref)
+	if err != nil {
+		log.Println("ERROR", err)
 	}
 
-	var strs []string
 	for _, p := range pipelines {
-		if p.ID != excludePipeline {
-			strs = append(strs, strconv.Itoa(p.ID))
-			cancelPipeline(projectID, p.ID)
+		if p.ID == excludePipeline {
+			continue
 		}
-	}
-	if (len(strs)) == 0 {
-		log.Println("[DEBUG] No redundant pipelines found")
-	} else {
-		log.Println("[DEBUG] Redundant pipelines: ", strings.Join(strs, ", "))
+		builds, err := getPendingBuilds(projectID, p.ID)
+		if err != nil {
+			log.Println("ERROR", err)
+		}
+		for _, b := range builds {
+			_, err := cancelBuild(projectID, b.ID)
+			if err != nil {
+				log.Println("ERROR", err)
+			}
+		}
 	}
 }
 
@@ -286,7 +296,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	io.WriteString(w, message)
 	log.Println("[PIPELINE]", message)
 
-	defer cancelRedundantPipelines(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
+	defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
 }
 
 func main() {
