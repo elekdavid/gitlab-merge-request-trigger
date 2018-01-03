@@ -236,6 +236,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if webhook.Attributes.WorkInProgress {
+		httpError(w, r, "Work In Progress - skipping build", http.StatusAccepted)
+		return
+	}
+
 	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
 		httpError(w, r, webhook.Attributes.Source.HTTPURL+"is not a prefix of"+*gitlabURL, http.StatusNotFound)
 		return
