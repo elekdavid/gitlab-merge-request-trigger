@@ -2,6 +2,7 @@
 References:
  - https://docs.gitlab.com/ce/user/project/integrations/webhooks.html#merge-request-events
  - https://docs.gitlab.com/ce/api/commits.html#get-a-single-commit
+ - https://docs.gitlab.com/ce/api/pipelines.html
 */
 
 package main
@@ -149,6 +150,43 @@ func runTrigger(projectID int64, values url.Values) (resp *http.Response, err er
 	return http.PostForm(reqURL, values)
 }
 
+func getPipelines(projectID int64, ref string) (pipelines []pipeline, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines?ref=%s&status=pending&sort=asc", *gitlabURL, projectID, ref)
+	_, err = doJsonRequest("GET", reqURL, "", nil, &pipelines)
+	return
+}
+
+func cancelPipeline(projectID int64, pipelineID int) (pipeline pipeline, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/pipelines/%d/cancel", *gitlabURL, projectID, pipelineID)
+	log.Println("[DEBUG] Cancelling pipeline:", reqURL)
+	/*
+		_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
+	*/
+	return
+}
+
+func cancelRedundantPipelines(projectID int64, ref string, excludePipeline int) {
+	var pipelines []pipeline
+	var err error
+
+	if pipelines, err = getPipelines(projectID, ref); err != nil {
+		log.Fatal(err)
+	}
+
+	var strs []string
+	for _, p := range pipelines {
+		if p.ID != excludePipeline {
+			strs = append(strs, strconv.Itoa(p.ID))
+			cancelPipeline(projectID, p.ID)
+		}
+	}
+	if (len(strs)) == 0 {
+		log.Println("[DEBUG] No redundant pipelines found")
+	} else {
+		log.Println("[DEBUG] Redundant pipelines: ", strings.Join(strs, ", "))
+	}
+}
+
 func httpError(w http.ResponseWriter, r *http.Request, error string, code int) {
 	http.Error(w, error, code)
 	log.Println("[HTTP]",
@@ -247,6 +285,8 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("created pipeline id: %d", p.ID)
 	io.WriteString(w, message)
 	log.Println("[PIPELINE]", message)
+
+	defer cancelRedundantPipelines(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
 }
 
 func main() {
