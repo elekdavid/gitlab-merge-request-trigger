@@ -235,12 +235,18 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
 
-	log.Println("[PIPELINE]", "pipeline has been triggered, server returned StatusCode:", resp.StatusCode)
-	// TODO: print some important details of the created pipeline, at least its ID
-	// TODO: think how to proceed if HTTP response is not 201 (created)
+	var p pipeline
+	err = json.NewDecoder(resp.Body).Decode(&p)
+	if err != nil {
+		httpError(w, r, err.Error(), http.StatusUnsupportedMediaType)
+		return
+	}
+
+	w.WriteHeader(resp.StatusCode)
+	message := fmt.Sprintf("created pipeline id: %d", p.ID)
+	io.WriteString(w, message)
+	log.Println("[PIPELINE]", message)
 }
 
 func main() {
