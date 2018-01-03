@@ -58,6 +58,7 @@ type webhookRequest struct {
 }
 
 type tokenResponse struct {
+	ID        int    `json:"id"`
 	DeletedAt string `json:"deleted_at"`
 	Token     string `json:"token"`
 }
@@ -124,13 +125,14 @@ func getTriggerToken(projectID int64) (string, error) {
 	if tokens, err := listTokens(projectID); err == nil {
 		for _, token := range tokens {
 			if token.DeletedAt != "" {
-				log.Println("[TOKEN]", "found deleted at:", token.DeletedAt)
+				log.Println("[TOKEN]", "id:", token.ID, "- deleted at:", token.DeletedAt)
 				continue
 			}
-			if token.Token != "" {
-				log.Println("[TOKEN]", "found not empty Token:", token.Token)
+			if token.Token == "" {
+				log.Println("[TOKEN]", "id:", token.ID, "- empty")
 				continue
 			}
+			log.Println("[TOKEN]", "id:", token.ID, ", token:", token.Token, "- will use it")
 			return token.Token, nil
 		}
 	}
