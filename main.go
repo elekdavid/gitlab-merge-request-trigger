@@ -123,7 +123,12 @@ func getTriggerToken(projectID int64) (string, error) {
 
 	if tokens, err := listTokens(projectID); err == nil {
 		for _, token := range tokens {
-			if token.DeletedAt != "" || token.Token != "" {
+			if token.DeletedAt != "" {
+				log.Println("[TOKEN]", "found deleted at:", token.DeletedAt)
+				continue
+			}
+			if token.Token != "" {
+				log.Println("[TOKEN]", "found not empty Token:", token.Token)
 				continue
 			}
 			return token.Token, nil
@@ -170,7 +175,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("[WEBHOOK]",
+	log.Println("[REQUEST]",
 		"state:", webhook.Attributes.State,
 		"id:", webhook.Attributes.ID,
 		"iid:", webhook.Attributes.IID,
@@ -200,7 +205,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if commit.LastPipeline != nil {
-		log.Println("[WEBHOOK]", "commit:", webhook.Attributes.LastCommit.ID,
+		log.Println("[PIPELINE]", "commit:", webhook.Attributes.LastCommit.ID,
 			"already has associated pipeline:", commit.LastPipeline.ID)
 		return
 	}
@@ -231,7 +236,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 
-	log.Println("[WEBHOOK]", "pipeline has been triggered, server returned StatusCode:", resp.StatusCode)
+	log.Println("[PIPELINE]", "pipeline has been triggered, server returned StatusCode:", resp.StatusCode)
 	// TODO: print some important details of the created pipeline, at least its ID
 	// TODO: think how to proceed if HTTP response is not 201 (created)
 }
@@ -248,7 +253,7 @@ func main() {
 		log.Fatal("Specify --url an address of GitLab instance")
 	}
 
-	println("Starting on", *listenAddr, "...")
+	println("Listening on", *listenAddr, "...")
 
 	http.HandleFunc("/webhook.json", webhookHandler)
 	log.Fatal(http.ListenAndServe(*listenAddr, nil))
