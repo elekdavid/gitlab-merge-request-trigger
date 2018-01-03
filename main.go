@@ -233,7 +233,7 @@ func httpError(w http.ResponseWriter, r *http.Request, error string, code int) {
 	log.Println("[RESPONSE]", code, ":", error)
 }
 
-func webhookHandler(w http.ResponseWriter, r *http.Request) {
+func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		httpError(w, r, "we support POST method only, but it was:"+r.Method, http.StatusMethodNotAllowed)
 		return
@@ -324,6 +324,10 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+func handlerPing(w http.ResponseWriter, r *http.Request) {
+	httpError(w, r, "healthy", http.StatusOK)
+}
+
 func main() {
 	flag.Parse()
 
@@ -338,6 +342,8 @@ func main() {
 
 	println("Listening on", *listenAddr, "...")
 
-	http.HandleFunc("/webhook.json", webhookHandler)
+	http.HandleFunc("/webhook.json", handlerWebhook)
+	http.HandleFunc("/_ping", handlerPing)
+
 	log.Fatal(http.ListenAndServe(*listenAddr, nil))
 }
