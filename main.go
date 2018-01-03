@@ -41,7 +41,8 @@ type pipeline struct {
 }
 
 type job struct {
-	ID int `json:"id"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 type objectAttributes struct {
@@ -163,7 +164,6 @@ func getPendingBuilds(projectID int64, pipelineID int) (jobs []job, err error) {
 
 func cancelBuild(projectID int64, buildID int) (job job, err error) {
 	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/jobs/%d/cancel", *gitlabURL, projectID, buildID)
-	log.Println("[BUILD] Cancelling build:", buildID)
 	_, err = doJsonRequest("POST", reqURL, "", nil, &job)
 	return
 }
@@ -189,6 +189,7 @@ func cancelRedundantBuilds(projectID int64, ref string, excludePipeline int) {
 			log.Println("ERROR", err)
 		}
 		for _, b := range builds {
+			log.Println("[BUILD] In pipeline", p.ID, "cancelling build:", b.ID, "(", b.Name, ")")
 			_, err := cancelBuild(projectID, b.ID)
 			if err != nil {
 				log.Println("ERROR", err)
