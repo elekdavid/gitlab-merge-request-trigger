@@ -1,7 +1,7 @@
 /*
 References:
  - https://docs.gitlab.com/ce/user/project/integrations/webhooks.html#merge-request-events
- - https://docs.gitlab.com/ee/api/commits.html#get-a-single-commit
+ - https://docs.gitlab.com/ce/api/commits.html#get-a-single-commit
 */
 
 package main
@@ -16,7 +16,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -186,7 +185,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"merge_status:", webhook.Attributes.MergeStatus)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
-		httpError(w, r, "We support only open, reopen and update action", http.StatusBadRequest)
+		httpError(w, r, "We support only open, reopen and update action but it was: "+webhook.Attributes.Action, http.StatusBadRequest)
 		return
 	}
 
@@ -229,9 +228,12 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer resp.Body.Close()
-
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+
+	log.Println("[WEBHOOK]", "pipeline has been triggered, server returned StatusCode:", resp.StatusCode)
+	// TODO: print some important details of the created pipeline, at least its ID
+	// TODO: think how to proceed if HTTP response is not 201 (created)
 }
 
 func main() {
@@ -239,13 +241,11 @@ func main() {
 
 	if *triggerToken == "" && *privateToken == "" ||
 		*triggerToken != "" && *privateToken != "" {
-		println("Specify --trigger-token or --private-token")
-		os.Exit(2)
+		log.Fatal("Specify --trigger-token or --private-token")
 	}
 
 	if *gitlabURL == "" {
-		println("Specify --url an address of GitLab instance")
-		os.Exit(2)
+		log.Fatal("Specify --url an address of GitLab instance")
 	}
 
 	println("Starting on", *listenAddr, "...")
