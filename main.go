@@ -198,64 +198,56 @@ func cancelRedundantBuilds(projectID int64, ref string, excludePipeline int) {
 
 func httpError(w http.ResponseWriter, r *http.Request, error string, code int) {
 	http.Error(w, error, code)
-	log.Println("[RESPONSE]",
-		"code:", code,
-		"message:", error)
+	log.Println("[RESPONSE]", code, ":", error)
 }
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("[REQUEST]",
-		"method:", r.Method,
-		"host:", r.Host,
-		"request:", r.RequestURI)
-
 	if r.Method != "POST" {
-		httpError(w, r, "POST only", http.StatusMethodNotAllowed)
+		httpError(w, r, "we support POST method only, but it was:"+r.Method, http.StatusMethodNotAllowed)
 		return
 	}
 
 	var webhook webhookRequest
 	err := json.NewDecoder(r.Body).Decode(&webhook)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusUnsupportedMediaType)
+		httpError(w, r, "error decoding json body of request:"+err.Error(), http.StatusUnsupportedMediaType)
 		return
 	}
 
 	if webhook.ObjectKind != "merge_request" {
-		httpError(w, r, "We support merge_request only", http.StatusUnprocessableEntity)
+		httpError(w, r, "we support merge_request objects only, but it was:"+webhook.ObjectKind, http.StatusUnprocessableEntity)
 		return
 	}
 
-	log.Println("[MERGE REQUEST]",
+	log.Println("[MR]",
 		"state:", webhook.Attributes.State,
 		"id:", webhook.Attributes.ID,
 		"iid:", webhook.Attributes.IID,
 		"action:", webhook.Attributes.Action,
 		"project:", webhook.Attributes.Source.HTTPURL,
-		"source_branch:", webhook.Attributes.SourceBranch,
-		"target_branch:", webhook.Attributes.TargetBranch,
+		"branches:", webhook.Attributes.SourceBranch, ">", webhook.Attributes.TargetBranch,
 		"commit_sha:", webhook.Attributes.LastCommit.ID,
 		"commit_timestamp:", webhook.Attributes.LastCommit.Timestamp,
-		"work_in_progress:", webhook.Attributes.WorkInProgress,
+		"wip:", webhook.Attributes.WorkInProgress,
 		"merge_status:", webhook.Attributes.MergeStatus)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
-		httpError(w, r, "Ignored action: "+webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
+		httpError(w, r, "ignored MR action - "+webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
 		return
 	}
 
 	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
-		httpError(w, r, webhook.Attributes.Source.HTTPURL+" is not prefix of "+*gitlabURL, http.StatusNotFound)
+		httpError(w, r, webhook.Attributes.Source.HTTPURL+"is not a prefix of"+*gitlabURL, http.StatusNotFound)
 		return
 	}
 
 	commit, err := getCommit(webhook.Attributes.SourceProjectID, webhook.Attributes.LastCommit.ID)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusInternalServerError)
+		httpError(w, r, "cannot get details of the commit:"+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	if commit.LastPipeline != nil {
-		message := fmt.Sprintf("[PIPELINE] commit: %s already has associated pipeline: %d", webhook.Attributes.LastCommit.ID, commit.LastPipeline.ID)
+		message := fmt.Sprintf("commit: %s already has associated pipeline: %d", webhook.Attributes.LastCommit.ID, commit.LastPipeline.ID)
 		httpError(w, r, message, http.StatusOK)
 		defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, commit.LastPipeline.ID)
 		return
@@ -282,11 +274,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	var p pipeline
 	err = json.NewDecoder(resp.Body).Decode(&p)
 	if err != nil {
-		httpError(w, r, err.Error(), http.StatusUnsupportedMediaType)
+		httpError(w, r, "error decoding json body of pipeline creation response:"+err.Error(), http.StatusUnsupportedMediaType)
 		return
 	}
 
-	message := fmt.Sprintf("[PIPELINE] created pipeline id: %d", p.ID)
+	message := fmt.Sprintf("created pipeline id: %d", p.ID)
 	httpError(w, r, message, resp.StatusCode)
 	defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
 	return
