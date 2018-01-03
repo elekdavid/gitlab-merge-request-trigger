@@ -4,6 +4,7 @@ services:
 
 stages:
   - build
+  - test
 
 build:
   stage: build
@@ -12,3 +13,19 @@ build:
     - docker build -t $CI_REGISTRY_IMAGE .
     - docker login -u $CI_REGISTRY_USER -p "$CI_JOB_TOKEN" $CI_REGISTRY
     - docker push $CI_REGISTRY_IMAGE
+
+deploy-test:
+  stage: test
+  tags:
+    - swarm-manager
+  environment:
+    name: test
+  variables:
+    PUBLISHED_PORT: 8181
+    GITLAB_INSTANCE_ADDRESS: https://gitlab.com
+  when: manual
+  image: docker
+  script:
+    - echo Deploying to environment $CI_ENVIRONMENT_NAME ...
+    - docker login -u $CI_REGISTRY_USER -p "$CI_JOB_TOKEN" $CI_REGISTRY
+    - docker stack deploy --with-registry-auth -c docker-compose.yml $CI_ENVIRONMENT_NAME

@@ -1,0 +1,26 @@
+
+#
+# Stack relies on the following environment variables to be present:
+# - CI_REGISTRY_IMAGE
+# - PUBLISHED_PORT
+# - GITLAB_INSTANCE_ADDRESS
+# - GITLAB_API_TOKEN
+#
+
+version: '3.4'
+
+services:
+  mrt:
+    image: $CI_REGISTRY_IMAGE
+    ports:
+      - $PUBLISHED_PORT:8080
+    command:
+      -listen=:8080 -url=$GITLAB_INSTANCE_ADDRESS -private-token=$GITLAB_API_TOKEN
+    deploy:
+      placement:
+        constraints:
+          - node.platform.os == linux
+      replicas: 2
+      update_config:
+        parallelism: 1
+        order: start-first
