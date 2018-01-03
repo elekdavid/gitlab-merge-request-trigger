@@ -7,6 +7,7 @@ References:
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -58,9 +59,10 @@ type webhookRequest struct {
 }
 
 type tokenResponse struct {
-	ID        int    `json:"id"`
-	DeletedAt string `json:"deleted_at"`
-	Token     string `json:"token"`
+	ID          int    `json:"id"`
+	DeletedAt   string `json:"deleted_at"`
+	Token       string `json:"token"`
+	Description string `json:"description"`
 }
 
 var listenAddr = flag.String("listen", ":8080", "HTTP listen address")
@@ -106,14 +108,16 @@ func getCommit(projectID int64, commitID string) (commit commit, err error) {
 }
 
 func listTokens(projectID int64) (tokens []tokenResponse, err error) {
-	reqURL := fmt.Sprintf("%s/api/v3/projects/%d/triggers", *gitlabURL, projectID)
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/triggers", *gitlabURL, projectID)
 	_, err = doJsonRequest("GET", reqURL, "", nil, &tokens)
 	return
 }
 
 func createToken(projectID int64) (token tokenResponse, err error) {
-	reqURL := fmt.Sprintf("%s/api/v3/projects/%d/triggers", *gitlabURL, projectID)
-	_, err = doJsonRequest("POST", reqURL, "", nil, &token)
+	var jsonStr = []byte(`{ "description": "MR trigger (created automatically)" }`)
+
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/triggers", *gitlabURL, projectID)
+	_, err = doJsonRequest("POST", reqURL, "application/json", bytes.NewBuffer(jsonStr), &token)
 	return
 }
 
@@ -124,20 +128,16 @@ func getTriggerToken(projectID int64) (string, error) {
 
 	if tokens, err := listTokens(projectID); err == nil {
 		for _, token := range tokens {
-			if token.DeletedAt != "" {
-				log.Println("[TOKEN]", "id:", token.ID, "- deleted at:", token.DeletedAt)
+			if token.DeletedAt != "" || token.Token == "" {
 				continue
 			}
-			if token.Token == "" {
-				log.Println("[TOKEN]", "id:", token.ID, "- empty")
-				continue
-			}
-			log.Println("[TOKEN]", "id:", token.ID, ", token:", token.Token, "- will use it")
+			log.Println("[TOKEN]", "found existing - id:", token.ID, ", description:", token.Description)
 			return token.Token, nil
 		}
 	}
 
 	if token, err := createToken(projectID); err == nil {
+		log.Println("[TOKEN]", "created - id:", token.ID)
 		return token.Token, nil
 	} else {
 		return "", err
@@ -145,7 +145,7 @@ func getTriggerToken(projectID int64) (string, error) {
 }
 
 func runTrigger(projectID int64, values url.Values) (resp *http.Response, err error) {
-	reqURL := fmt.Sprintf("%s/api/v3/projects/%d/trigger/builds", *gitlabURL, projectID)
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/trigger/pipeline", *gitlabURL, projectID)
 	return http.PostForm(reqURL, values)
 }
 
