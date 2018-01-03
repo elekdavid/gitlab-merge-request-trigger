@@ -19,7 +19,6 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
@@ -271,12 +270,6 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 	values.Set("token", token)
 	values.Set("ref", webhook.Attributes.SourceBranch)
 	values.Set("variables[CI_MERGE_REQUEST]", "true")
-	values.Set("variables[CI_MERGE_REQUEST_ID]", strconv.Itoa(webhook.Attributes.ID))
-	values.Set("variables[CI_MERGE_REQUEST_IID]", strconv.Itoa(webhook.Attributes.IID))
-	values.Set("variables[CI_MERGE_REQUEST_ACTION]", webhook.Attributes.Action)
-	values.Set("variables[CI_MERGE_REQUEST_STATE]", webhook.Attributes.State)
-	values.Set("variables[CI_TARGET_PROJECT]", webhook.Attributes.Target.HTTPURL)
-	values.Set("variables[CI_TARGET_BRANCH]", webhook.Attributes.TargetBranch)
 
 	resp, err := runTrigger(webhook.Attributes.SourceProjectID, values)
 	if err != nil {
