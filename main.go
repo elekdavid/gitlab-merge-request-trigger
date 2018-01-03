@@ -199,7 +199,7 @@ func cancelRedundantBuilds(projectID int64, ref string, excludePipeline int) {
 
 func httpError(w http.ResponseWriter, r *http.Request, error string, code int) {
 	http.Error(w, error, code)
-	log.Println("[HTTP]",
+	log.Println("[RESPONSE]",
 		"method:", r.Method,
 		"host:", r.Host,
 		"request:", r.RequestURI,
@@ -255,8 +255,9 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if commit.LastPipeline != nil {
-		log.Println("[PIPELINE]", "commit:", webhook.Attributes.LastCommit.ID,
-			"already has associated pipeline:", commit.LastPipeline.ID)
+		message := fmt.Sprintf("[PIPELINE] commit: %s already has associated pipeline: %d", webhook.Attributes.LastCommit.ID, commit.LastPipeline.ID)
+		httpError(w, r, message, http.StatusOK)
+		defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, commit.LastPipeline.ID)
 		return
 	}
 
@@ -285,12 +286,10 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(resp.StatusCode)
-	message := fmt.Sprintf("created pipeline id: %d", p.ID)
-	io.WriteString(w, message)
-	log.Println("[PIPELINE]", message)
-
+	message := fmt.Sprintf("[PIPELINE] created pipeline id: %d", p.ID)
+	httpError(w, r, message, resp.StatusCode)
 	defer cancelRedundantBuilds(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, p.ID)
+	return
 }
 
 func main() {
