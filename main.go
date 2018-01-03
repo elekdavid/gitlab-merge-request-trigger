@@ -52,6 +52,7 @@ type objectAttributes struct {
 	State           string  `json:"state"`
 	MergeStatus     string  `json:"merge_status"`
 	Source          project `json:"source"`
+	Target          project `json:"target"`
 	LastCommit      commit  `json:"last_commit"`
 	Action          string  `json:"action"`
 	WorkInProgress  bool    `json:"work_in_progress"`
@@ -230,6 +231,11 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"commit:", webhook.Attributes.LastCommit.ID, "@", webhook.Attributes.LastCommit.Timestamp,
 		"wip:", webhook.Attributes.WorkInProgress,
 		"merge_status:", webhook.Attributes.MergeStatus)
+
+	if webhook.Attributes.Source.HTTPURL != webhook.Attributes.Target.HTTPURL {
+		httpError(w, r, "forks are not supported", http.StatusBadRequest)
+		return
+	}
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
 		httpError(w, r, "ignored MR action - "+webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
