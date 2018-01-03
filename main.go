@@ -4,6 +4,7 @@ References:
  - https://docs.gitlab.com/ce/api/commits.html#get-a-single-commit
  - https://docs.gitlab.com/ce/api/pipelines.html
  - https://docs.gitlab.com/ce/api/jobs.html
+ - https://docs.gitlab.com/ee/api/merge_requests.html
 */
 
 package main
@@ -58,6 +59,11 @@ type objectAttributes struct {
 	WorkInProgress  bool    `json:"work_in_progress"`
 }
 
+type mergeRequest struct {
+	ShouldRemoveSourceBranch bool `json:"should_remove_source_branch"`
+	ForceRemoveSourceBranch  bool `json:"force_remove_source_branch"`
+}
+
 type webhookRequest struct {
 	ObjectKind string           `json:"object_kind"`
 	Attributes objectAttributes `json:"object_attributes"`
@@ -105,6 +111,30 @@ func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data 
 		err = errors.New(resp.Status + " " + fmt.Sprintf("%s", body))
 	}
 	return
+}
+
+func getMergeRequest(projectID int64, mrIID int) (mr mergeRequest, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/merge_requests/%d", *gitlabURL, projectID, mrIID)
+	_, err = doJsonRequest("GET", reqURL, "", nil, &mr)
+	return
+}
+
+func setRemoveSourceBranchForMR(projectID int64, mrIID int) (mr mergeRequest, err error) {
+	// https://docs.gitlab.com/ce/api/merge_requests.html#update-mr
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/merge_requests/%d?remove_source_branch=true", *gitlabURL, projectID, mrIID)
+	_, err = doJsonRequest("PUT", reqURL, "", nil, &mr)
+	return
+}
+
+func setRemoveSourceBranchForMR_AndReport(projectID int64, mrIID int) {
+	mr, err := setRemoveSourceBranchForMR(projectID, mrIID)
+	if err != nil {
+		log.Println("[MR] ERROR setting remove_source_branch for MR:" + err.Error())
+		return
+	}
+	log.Println("[MR] updated flags:",
+		"should_remove_source_branch:", mr.ShouldRemoveSourceBranch,
+		"force_remove_source_branch:", mr.ForceRemoveSourceBranch)
 }
 
 func getCommit(projectID int64, commitID string) (commit commit, err error) {
@@ -221,6 +251,12 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mr, err := getMergeRequest(webhook.Attributes.SourceProjectID, webhook.Attributes.IID)
+	if err != nil {
+		httpError(w, r, "error getting details of the MR:"+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	log.Println("[MR]",
 		"state:", webhook.Attributes.State,
 		"id:", webhook.Attributes.ID,
@@ -230,11 +266,22 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"branches:", webhook.Attributes.SourceBranch, ">", webhook.Attributes.TargetBranch,
 		"commit:", webhook.Attributes.LastCommit.ID, "@", webhook.Attributes.LastCommit.Timestamp,
 		"wip:", webhook.Attributes.WorkInProgress,
-		"merge_status:", webhook.Attributes.MergeStatus)
+		"merge_status:", webhook.Attributes.MergeStatus,
+		"should_remove_source_branch:", mr.ShouldRemoveSourceBranch,
+		"force_remove_source_branch:", mr.ForceRemoveSourceBranch)
+
+	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
+		httpError(w, r, webhook.Attributes.Source.HTTPURL+"is not a prefix of"+*gitlabURL, http.StatusNotFound)
+		return
+	}
 
 	if webhook.Attributes.Source.HTTPURL != webhook.Attributes.Target.HTTPURL {
 		httpError(w, r, "forks are not supported", http.StatusBadRequest)
 		return
+	}
+
+	if webhook.Attributes.Action == "open" && mr.ForceRemoveSourceBranch != true {
+		defer setRemoveSourceBranchForMR_AndReport(webhook.Attributes.SourceProjectID, webhook.Attributes.IID)
 	}
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
@@ -244,11 +291,6 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	if webhook.Attributes.WorkInProgress {
 		httpError(w, r, "Work In Progress - skipping build", http.StatusAccepted)
-		return
-	}
-
-	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
-		httpError(w, r, webhook.Attributes.Source.HTTPURL+"is not a prefix of"+*gitlabURL, http.StatusNotFound)
 		return
 	}
 
