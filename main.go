@@ -240,7 +240,7 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"merge_status:", webhook.Attributes.MergeStatus)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
-		httpError(w, r, "Ignored action: "+webhook.Attributes.Action, http.StatusNoContent)
+		httpError(w, r, "Ignored action: "+webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
 		return
 	}
 
