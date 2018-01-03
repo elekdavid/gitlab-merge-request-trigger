@@ -1,4 +1,11 @@
+
+stages:
+  - build
+
 build:
-  image: golang
+  stage: build
+  image: docker
   script:
-    - go version
+    - docker build -t $CI_REGISTRY_IMAGE .
+    - docker login -u $CI_REGISTRY_USER -p "$CI_JOB_TOKEN" $CI_REGISTRY
+    - docker push $CI_REGISTRY_IMAGE
