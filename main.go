@@ -53,7 +53,6 @@ type objectAttributes struct {
 	State           string  `json:"state"`
 	MergeStatus     string  `json:"merge_status"`
 	Source          project `json:"source"`
-	Target          project `json:"target"`
 	LastCommit      commit  `json:"last_commit"`
 	Action          string  `json:"action"`
 	WorkInProgress  bool    `json:"work_in_progress"`
@@ -200,14 +199,16 @@ func cancelRedundantBuilds(projectID int64, ref string, excludePipeline int) {
 func httpError(w http.ResponseWriter, r *http.Request, error string, code int) {
 	http.Error(w, error, code)
 	log.Println("[RESPONSE]",
-		"method:", r.Method,
-		"host:", r.Host,
-		"request:", r.RequestURI,
 		"code:", code,
 		"message:", error)
 }
 
 func webhookHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("[REQUEST]",
+		"method:", r.Method,
+		"host:", r.Host,
+		"request:", r.RequestURI)
+
 	if r.Method != "POST" {
 		httpError(w, r, "POST only", http.StatusMethodNotAllowed)
 		return
@@ -225,14 +226,13 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("[REQUEST]",
+	log.Println("[MERGE REQUEST]",
 		"state:", webhook.Attributes.State,
 		"id:", webhook.Attributes.ID,
 		"iid:", webhook.Attributes.IID,
-		"action", webhook.Attributes.Action,
-		"source_project:", webhook.Attributes.Source.HTTPURL,
+		"action:", webhook.Attributes.Action,
+		"project:", webhook.Attributes.Source.HTTPURL,
 		"source_branch:", webhook.Attributes.SourceBranch,
-		"target_project:", webhook.Attributes.Target.HTTPURL,
 		"target_branch:", webhook.Attributes.TargetBranch,
 		"commit_sha:", webhook.Attributes.LastCommit.ID,
 		"commit_timestamp:", webhook.Attributes.LastCommit.Timestamp,
