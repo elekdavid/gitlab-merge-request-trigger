@@ -1,3 +1,9 @@
+/*
+References:
+ - https://docs.gitlab.com/ce/user/project/integrations/webhooks.html#merge-request-events
+ - https://docs.gitlab.com/ee/api/commits.html#get-a-single-commit
+*/
+
 package main
 
 import (
@@ -22,8 +28,14 @@ type project struct {
 }
 
 type commit struct {
-	ID      string `json:"id"`
-	Message string `json:"message"`
+	ID           string    `json:"id"`
+	Message      string    `json:"message"`
+	LastPipeline *pipeline `json:"last_pipeline"`
+	Timestamp    string    `json:"timestamp"`
+}
+
+type pipeline struct {
+	ID int `json:"id"`
 }
 
 type objectAttributes struct {
@@ -33,10 +45,12 @@ type objectAttributes struct {
 	SourceBranch    string  `json:"source_branch"`
 	SourceProjectID int64   `json:"source_project_id"`
 	State           string  `json:"state"`
+	MergeStatus     string  `json:"merge_status"`
 	Source          project `json:"source"`
 	Target          project `json:"target"`
 	LastCommit      commit  `json:"last_commit"`
 	Action          string  `json:"action"`
+	WorkInProgress  bool    `json:"work_in_progress"`
 }
 
 type webhookRequest struct {
@@ -64,7 +78,7 @@ func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data 
 		return
 	}
 
-	req.Header.Set("PRIVATE_TOKEN", *privateToken)
+	req.Header.Set("Private-Token", *privateToken)
 	if bodyType != "" {
 		req.Header.Set("Content-Type", bodyType)
 	}
@@ -82,6 +96,12 @@ func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data 
 	} else {
 		err = errors.New(resp.Status)
 	}
+	return
+}
+
+func getCommit(projectID int64, commitID string) (commit commit, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/repository/commits/%s", *gitlabURL, projectID, commitID)
+	_, err = doJsonRequest("GET", reqURL, "", nil, &commit)
 	return
 }
 
@@ -160,7 +180,10 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 		"source_branch:", webhook.Attributes.SourceBranch,
 		"target_project:", webhook.Attributes.Target.HTTPURL,
 		"target_branch:", webhook.Attributes.TargetBranch,
-		"commit_sha:", webhook.Attributes.LastCommit.ID)
+		"commit_sha:", webhook.Attributes.LastCommit.ID,
+		"commit_timestamp:", webhook.Attributes.LastCommit.Timestamp,
+		"work_in_progress:", webhook.Attributes.WorkInProgress,
+		"merge_status:", webhook.Attributes.MergeStatus)
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
 		httpError(w, r, "We support only open, reopen and update action", http.StatusBadRequest)
@@ -169,6 +192,17 @@ func webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !strings.HasPrefix(webhook.Attributes.Source.HTTPURL, *gitlabURL) {
 		httpError(w, r, webhook.Attributes.Source.HTTPURL+" is not prefix of "+*gitlabURL, http.StatusBadRequest)
+		return
+	}
+
+	commit, err := getCommit(webhook.Attributes.SourceProjectID, webhook.Attributes.LastCommit.ID)
+	if err != nil {
+		httpError(w, r, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if commit.LastPipeline != nil {
+		log.Println("[WEBHOOK]", "commit:", webhook.Attributes.LastCommit.ID,
+			"already has associated pipeline:", commit.LastPipeline.ID)
 		return
 	}
 
