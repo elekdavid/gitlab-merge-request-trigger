@@ -101,7 +101,8 @@ func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data 
 		d := json.NewDecoder(resp.Body)
 		err = d.Decode(data)
 	} else {
-		err = errors.New(resp.Status)
+		body, _ := ioutil.ReadAll(resp.Body)
+		err = errors.New(resp.Status + " " + fmt.Sprintf("%s", body))
 	}
 	return
 }
