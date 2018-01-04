@@ -1,7 +1,8 @@
-
 # What is it
 
 ## Synopsis
+
+It's a Fork of the original project: https://gitlab.com/ayufan/merge-requests-triggers.git
 
 This application allows to trigger pipelines for Merge Requests in GitLab CI.
 
