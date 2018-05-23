@@ -180,8 +180,8 @@ func getTriggerToken(projectID int64) (string, error) {
 	}
 }
 
-func runTrigger(projectID int64, ref, token string, target string, mrId string, mrIid string) (pipeline *pipeline, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true&variables[MR_TARGET_BRANCH]=%s&variables[MR_ID]=%s&variables[MR_IID]=%s", *gitlabURL, projectID, ref, token, target, mrId, mrIid)
+func runTrigger(projectID int64, ref, token string, target string, mrId int, mrIid int) (pipeline *pipeline, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true&variables[MR_TARGET_BRANCH]=%s&variables[MR_ID]=%v&variables[MR_IID]=%v", *gitlabURL, projectID, ref, token, target, mrId, mrIid)
 	_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
 	return
 }
