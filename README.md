@@ -73,6 +73,8 @@ only:
 * You can use the following environment variables in your job:
   * `CI_MERGE_REQUEST`: if job was triggered my merge request, it will get `true` value
   * `MR_TARGET_BRANCH`: the target branch
+  * `MR_ID`: the ID of the merge request
+  * `MR_IID`: the IID of the merge request
 
 
 ## [Optional] Require Merge Requests to be built
