@@ -80,6 +80,7 @@ var listenAddr = flag.String("listen", ":8080", "HTTP listen address")
 var triggerToken = flag.String("token", "", "HTTP trigger token")
 var privateToken = flag.String("private-token", "", "User PRIVATE-TOKEN with privileges to create Build triggers")
 var gitlabURL = flag.String("url", "", "GitLab instance address")
+var shouldTriggerMerged = flag.Bool("trigger-merged", false, "Should trigger merged requests which was just merged")
 
 func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data interface{}) (resp *http.Response, err error) {
 	if *privateToken == "" {
@@ -180,8 +181,33 @@ func getTriggerToken(projectID int64) (string, error) {
 	}
 }
 
-func runTrigger(projectID int64, ref, token string, target string, mrId int, mrIid int) (pipeline *pipeline, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true&variables[MR_TARGET_BRANCH]=%s&variables[MR_ID]=%v&variables[MR_IID]=%v", *gitlabURL, projectID, ref, token, target, mrId, mrIid)
+func runTrigger(webhook webhookRequest, token string) (pipeline *pipeline, err error) {
+	var pipelineBranch string
+
+	if webhook.Attributes.State == "merged" {
+		pipelineBranch = webhook.Attributes.TargetBranch
+	} else {
+		pipelineBranch = webhook.Attributes.SourceBranch
+	}
+
+	reqURL := fmt.Sprintf(
+		"%s/api/v4/projects/%d/ref/%s/trigger/pipeline?" +
+			"token=%s" +
+			"&variables[CI_MERGE_REQUEST]=true" +
+			"&variables[MR_SOURCE_BRANCH]=%s" +
+			"&variables[MR_TARGET_BRANCH]=%s" +
+			"&variables[MR_ID]=%v" +
+			"&variables[MR_IID]=%v" +
+			"&variables[MR_STATE]=%s",
+			*gitlabURL,
+			webhook.Attributes.SourceProjectID,
+			pipelineBranch,
+			token,
+			webhook.Attributes.SourceBranch,
+			webhook.Attributes.TargetBranch,
+			webhook.Attributes.ID,
+			webhook.Attributes.IID,
+			webhook.Attributes.State)
 	_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
 	return
 }
@@ -285,8 +311,15 @@ func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
-		httpError(w, r, "ignored MR action - "+webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
-		return
+		if webhook.Attributes.State == "merged" && !*shouldTriggerMerged {
+			httpError(w, r, "ignored merged MR: '-trigger-merged' flag is disabled", http.StatusNonAuthoritativeInfo)
+			return
+		}
+
+		if webhook.Attributes.State != "merged" {
+			httpError(w, r, "ignored MR action: " + webhook.Attributes.Action, http.StatusNonAuthoritativeInfo)
+			return
+		}
 	}
 
 	if webhook.Attributes.WorkInProgress {
@@ -312,7 +345,7 @@ func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pipeline, err := runTrigger(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, token, webhook.Attributes.TargetBranch, webhook.Attributes.ID, webhook.Attributes.IID)
+	pipeline, err := runTrigger(webhook, token)
 	if err != nil {
 		httpError(w, r, "error triggering pipeline - "+err.Error(), http.StatusInternalServerError)
 		return

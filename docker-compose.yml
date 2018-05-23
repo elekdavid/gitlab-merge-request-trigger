@@ -14,4 +14,4 @@ services:
     ports:
       - $PUBLISHED_PORT:8080
     command:
-      -listen=:8080 -url=$GITLAB_INSTANCE_ADDRESS -private-token=$GITLAB_API_TOKEN
+      -listen=:8080 -url=$GITLAB_INSTANCE_ADDRESS -private-token=$GITLAB_API_TOKEN -trigger-merged=$TRIGGER_MERGED

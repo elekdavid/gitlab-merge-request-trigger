@@ -38,6 +38,7 @@ Application can serve multiple Git projects simultaneously, as it runs with user
   * `PUBLISHED_PORT`: where the webhook will listen (eg. 9099)
   * `GITLAB_INSTANCE_ADDRESS`: the address of your gitlab (eg. https://gitlab.com/)
   * `GITLAB_API_TOKEN`: your private access token (see step later)
+  * `TRIGGER_MERGED`: wether trigger pipeline for a merged MR (true / false)
 
 ## Create Webhook
 
@@ -75,6 +76,7 @@ only:
   * `MR_TARGET_BRANCH`: the target branch
   * `MR_ID`: the ID of the merge request
   * `MR_IID`: the IID of the merge request
+  * `MR_STATE`: the state of the merge request (eg. merged / opened / etc)
 
 
 ## [Optional] Require Merge Requests to be built
