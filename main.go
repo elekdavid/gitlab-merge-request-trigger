@@ -180,8 +180,8 @@ func getTriggerToken(projectID int64) (string, error) {
 	}
 }
 
-func runTrigger(projectID int64, ref, token string, target string) (pipeline *pipeline, err error) {
-	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true&variables[MR_TARGET_BRANCH]=%s", *gitlabURL, projectID, ref, token, target)
+func runTrigger(projectID int64, ref, token string, target string, mrId string, mrIid string) (pipeline *pipeline, err error) {
+	reqURL := fmt.Sprintf("%s/api/v4/projects/%d/ref/%s/trigger/pipeline?token=%s&variables[CI_MERGE_REQUEST]=true&variables[MR_TARGET_BRANCH]=%s&variables[MR_ID]=%s&variables[MR_IID]=%s", *gitlabURL, projectID, ref, token, target, mrId, mrIid)
 	_, err = doJsonRequest("POST", reqURL, "", nil, &pipeline)
 	return
 }
@@ -312,7 +312,7 @@ func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pipeline, err := runTrigger(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, token, webhook.Attributes.TargetBranch)
+	pipeline, err := runTrigger(webhook.Attributes.SourceProjectID, webhook.Attributes.SourceBranch, token, webhook.Attributes.TargetBranch, webhook.Attributes.ID, webhook.Attributes.IID)
 	if err != nil {
 		httpError(w, r, "error triggering pipeline - "+err.Error(), http.StatusInternalServerError)
 		return
