@@ -81,6 +81,7 @@ var triggerToken = flag.String("token", "", "HTTP trigger token")
 var privateToken = flag.String("private-token", "", "User PRIVATE-TOKEN with privileges to create Build triggers")
 var gitlabURL = flag.String("url", "", "GitLab instance address")
 var shouldTriggerMerged = flag.Bool("trigger-merged", false, "Should trigger merged requests which was just merged")
+var removeSourceExceptions = flag.String("remove-source-exceptions", "", "Do not update remove_source_branch for these branches")
 
 func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data interface{}) (resp *http.Response, err error) {
 	if *privateToken == "" {
@@ -127,15 +128,30 @@ func setRemoveSourceBranchForMR(projectID int64, mrIID int) (mr mergeRequest, er
 	return
 }
 
-func setRemoveSourceBranchForMR_AndReport(projectID int64, mrIID int) {
-	mr, err := setRemoveSourceBranchForMR(projectID, mrIID)
-	if err != nil {
-		log.Println("[MR] ERROR setting remove_source_branch for MR:" + err.Error())
-		return
+func contains(arr []string, str string) bool {
+	for _, a := range arr {
+		if a == str {
+				return true
+		}
 	}
-	log.Println("[MR] updated flags:",
-		"should_remove_source_branch:", mr.ShouldRemoveSourceBranch,
-		"force_remove_source_branch:", mr.ForceRemoveSourceBranch)
+	return false
+}
+
+func setRemoveSourceBranchForMR_AndReport(projectID int64, mrIID int, sourceBranch string) {
+	splittedRemoveSourceExceptions := strings.Split(*removeSourceExceptions, ",")
+	isExceptionBranch := contains(splittedRemoveSourceExceptions, sourceBranch)
+	if isExceptionBranch ==false {
+		mr, err := setRemoveSourceBranchForMR(projectID, mrIID)
+		if err != nil {
+			log.Println("[MR] ERROR setting remove_source_branch for MR:" + err.Error())
+			return
+		}
+		log.Println("[MR] updated flags:",
+			"should_remove_source_branch:", mr.ShouldRemoveSourceBranch,
+			"force_remove_source_branch:", mr.ForceRemoveSourceBranch)
+	} else {
+		log.Println("Modifying remove_source_branch for branch: ", sourceBranch, " was omitted!")
+	}	
 }
 
 func getCommit(projectID int64, commitID string) (commit commit, err error) {
@@ -307,7 +323,7 @@ func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if webhook.Attributes.Action == "open" && mr.ForceRemoveSourceBranch != true {
-		defer setRemoveSourceBranchForMR_AndReport(webhook.Attributes.SourceProjectID, webhook.Attributes.IID)
+		defer setRemoveSourceBranchForMR_AndReport(webhook.Attributes.SourceProjectID, webhook.Attributes.IID, webhook.Attributes.SourceBranch)
 	}
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {

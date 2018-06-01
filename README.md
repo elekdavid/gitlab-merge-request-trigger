@@ -39,6 +39,7 @@ Application can serve multiple Git projects simultaneously, as it runs with user
   * `GITLAB_INSTANCE_ADDRESS`: the address of your gitlab (eg. https://gitlab.com/)
   * `GITLAB_API_TOKEN`: your private access token (see step later)
   * `TRIGGER_MERGED`: wether trigger pipeline for a merged MR (true / false)
+  * `REMOVE_SOURCE_EXCEPTIONS`: Branches for which the `remove_source_branch=true` wont applied
 
 ## Create Webhook
 
