@@ -81,7 +81,7 @@ var triggerToken = flag.String("token", "", "HTTP trigger token")
 var privateToken = flag.String("private-token", "", "User PRIVATE-TOKEN with privileges to create Build triggers")
 var gitlabURL = flag.String("url", "", "GitLab instance address")
 var shouldTriggerMerged = flag.Bool("trigger-merged", false, "Should trigger merged requests which was just merged")
-var removeSourceBranchExceptions := [...]string{"develop"}
+var removeSourceExceptions = flag.String("remove-source-exceptions", "", "Do not update remove_source_branch for these branches")
 
 func doJsonRequest(method, urlStr string, bodyType string, body io.Reader, data interface{}) (resp *http.Response, err error) {
 	if *privateToken == "" {
@@ -138,7 +138,8 @@ func contains(arr []string, str string) bool {
 }
 
 func setRemoveSourceBranchForMR_AndReport(projectID int64, mrIID int, sourceBranch string) {
-	isExceptionBranch = contains(removeSourceBranchExceptions, sourceBranch)
+	splittedRemoveSourceExceptions := strings.Split(*removeSourceExceptions, ",")
+	isExceptionBranch := contains(splittedRemoveSourceExceptions, sourceBranch)
 	if isExceptionBranch ==false {
 		mr, err := setRemoveSourceBranchForMR(projectID, mrIID)
 		if err != nil {
@@ -322,7 +323,7 @@ func handlerWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if webhook.Attributes.Action == "open" && mr.ForceRemoveSourceBranch != true {
-		defer setRemoveSourceBranchForMR_AndReport(webhook.Attributes.SourceProjectID, webhook.Attributes.II, webhook.Attributes.SourceBranch)
+		defer setRemoveSourceBranchForMR_AndReport(webhook.Attributes.SourceProjectID, webhook.Attributes.IID, webhook.Attributes.SourceBranch)
 	}
 
 	if webhook.Attributes.Action != "open" && webhook.Attributes.Action != "reopen" && webhook.Attributes.Action != "update" {
